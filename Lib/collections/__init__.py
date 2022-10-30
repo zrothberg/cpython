@@ -32,6 +32,7 @@ import sys as _sys
 from itertools import chain as _chain
 from itertools import repeat as _repeat
 from itertools import starmap as _starmap
+from itertools import groupby as _groupby
 from keyword import iskeyword as _iskeyword
 from operator import eq as _eq
 from operator import itemgetter as _itemgetter
@@ -967,6 +968,9 @@ class Counter(dict):
         return self._keep_positive()
 
 
+def _isdict(test):
+    return type(test) is dict
+
 ########################################################################
 ###  ChainMap
 ########################################################################
@@ -1011,8 +1015,13 @@ class ChainMap(_collections_abc.MutableMapping):
 
     def __iter__(self):
         d = {}
-        for mapping in reversed(self.maps):
-            d.update(dict.fromkeys(mapping))    # reuses stored hash values if possible
+        for k, g in _groupby(reversed(self.maps), _isdict):
+            if k:
+                for mapping in g:
+                    d.update(mapping) #fast path dictionaries
+            else:
+                d.update(dict.fromkeys(_chain(*g))) #cannot reuse hash 
+            
         return iter(d)
 
     def __contains__(self, key):
